@@ -19,6 +19,12 @@ eureka:
     service-url:
       defaultZone: http://localhost:8761/eureka/
 
+app:
+  topic:
+    order-start: production.started
+    inventory-deduct: inventory.deduct
+    line-fault: line.fault
+
 resilience4j:
   circuitbreaker:
     instances:
