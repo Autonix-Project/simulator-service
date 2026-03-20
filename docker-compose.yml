@@ -38,7 +38,7 @@ services:
     build: .
     container_name: simulator-service
     ports:
-      - "8084:8084"
+      - "8086:8086"
     environment:
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - SPRING_DATA_REDIS_HOST=redis
