@@ -4,11 +4,8 @@ server:
 spring:
   application:
     name: simulator-service
-  kafka:
-    bootstrap-servers: localhost:9092
-    consumer:
-      group-id: simulator-group
-      auto-offset-reset: earliest
+  profiles:
+    active: local
   cloud:
     openfeign:
       client:
@@ -25,13 +22,35 @@ eureka:
 resilience4j:
   circuitbreaker:
     instances:
-      lineService: # 서비스 이름 (어노테이션에서 사용)
+      lineService:
         base-config: default
     configs:
       default:
-        registerHealthIndicator: true # 헬스체크에 표시
-        slidingWindowSize: 10 # 최근 10번의 호출을 통계에 사용
-        failureRateThreshold: 50 # 실패율 50% 이상일 때 서킷 오픈
-        waitDurationInOpenState: 10000 # 서킷이 열린 후 다시 시도하기까지 대기시간(10초)
-        permittedNumberOfCallsInHalfOpenState: 3 # 반개방 상태에서 허용할 호출 수
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000
+        permittedNumberOfCallsInHalfOpenState: 3
         slidingWindowType: COUNT_BASED
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: simulator-group
+      auto-offset-reset: earliest
+
+---
+spring:
+  config:
+    activate:
+      on-profile: docker
+  kafka:
+    bootstrap-servers: kafka:9092
+    consumer:
+      group-id: simulator-group
+      auto-offset-reset: earliest
