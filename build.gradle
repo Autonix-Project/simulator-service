@@ -32,8 +32,17 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
 	implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+
+	// Resilience4j for Circuit Breaker
+    implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
+    // AOP (Aspect Oriented Programming) - @CircuitBreaker 어노테이션 인식을 위해 필요
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    // 모니터링을 위한 Actuator
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
+	
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.kafka:spring-kafka-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
