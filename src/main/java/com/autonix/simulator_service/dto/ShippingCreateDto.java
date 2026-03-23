@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class InventoryDeductDto {
-    private String orderId;  // 주문 ID
-    private String vin;      // 차량 식별 번호
+public class ShippingCreateDto {
+    private String vin;      // 차량 식별 번호 (예: "ORDER-1")
+    private String orderId;  // 주문 ID — shipping-service가 order-service 조회 시 사용
 }

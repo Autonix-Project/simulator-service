@@ -13,17 +13,26 @@ public class SimulationProducer {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    public void sendShippingReadyEvent(Long vehicleId) {
-        kafkaTemplate.send("shipping.ready", Map.of("vehicleId", vehicleId));
+    /**
+     * 생산 완료 → 출고 이벤트
+     * vin은 "orderId-1" 형식의 String
+     */
+    public void sendShippingReadyEvent(String vin) {
+        kafkaTemplate.send("shipping.ready", Map.of("vin", vin));
     }
-    
-    // 조립 단계 진입 시 재고 서비스에 알림
-    public void sendInventoryDeductEvent(Long orderId) {
+
+    /**
+     * 조립 단계(ASSEMBLY_A) 진입 → 재고 차감 이벤트
+     * orderId는 String
+     */
+    public void sendInventoryDeductEvent(String orderId) {
         kafkaTemplate.send("inventory.deduct", Map.of("orderId", orderId, "action", "DECREASE"));
     }
 
-    // 장애 발생 시 알림 서비스에 전송
-    public void sendFaultEvent(String type, Object targetId) {
+    /**
+     * 장애 발생 → 알림 이벤트
+     */
+    public void sendFaultEvent(String type, String targetId) {
         kafkaTemplate.send("fault.occurred", Map.of("type", type, "targetId", targetId));
     }
 }

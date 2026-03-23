@@ -1,23 +1,24 @@
 package com.autonix.simulator_service.domain;
 
+import lombok.Getter;
+
+@Getter
 public enum ProcessStep {
-    BODY_SHOP("차체공정", 3),      // 3초 소요
-    PAINT_SHOP("도장공정", 5),     // 5초 소요
-    ASSEMBLY_LINE("조립공정", 7),  // 7초 소요
-    QUALITY_CONTROL("검사공정", 4); // 4초 소요
+    BODY_A("차체A", 3),
+    BODY_B("차체B", 3),
+    PAINTING("도장", 5),
+    ASSEMBLY_A("조립A", 7),
+    ASSEMBLY_B("조립B", 7),
+    QC("품질검사", 4);
 
     private final String name;
-    private final int duration; // 공정 소요 시간(초)
+    private final int duration;
 
     ProcessStep(String name, int duration) {
         this.name = name;
         this.duration = duration;
     }
 
-    public String getName() { return name; }
-    public int getDuration() { return duration; }
-
-    // 다음 공정 가져오기 로직
     public ProcessStep getNext() {
         int nextOrdinal = this.ordinal() + 1;
         return nextOrdinal < ProcessStep.values().length ? ProcessStep.values()[nextOrdinal] : null;
