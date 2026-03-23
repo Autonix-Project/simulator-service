@@ -23,4 +23,17 @@ public enum ProcessStep {
         int nextOrdinal = this.ordinal() + 1;
         return nextOrdinal < ProcessStep.values().length ? ProcessStep.values()[nextOrdinal] : null;
     }
+
+    /**
+     * line-service LineType enum 값으로 변환
+     * (BODY_A/BODY_B → 차체, PAINTING → 도장, ASSEMBLY_A/ASSEMBLY_B → 조립, QC → 품질검사)
+     */
+    public String toLineType() {
+        return switch (this) {
+            case BODY_A, BODY_B -> "차체";
+            case PAINTING -> "도장";
+            case ASSEMBLY_A, ASSEMBLY_B -> "조립";
+            case QC -> "품질검사";
+        };
+    }
 }
