@@ -1,18 +1,24 @@
 services:
-  # 1. Zookeeper: Kafka 관리를 위한 필수 서비스
+  # 1. Zookeeper
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # 2. Kafka: 서비스 간 비동기 통신을 위한 메시지 브로커
+  # 2. Kafka
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     ports:
       - "9092:9092"
     environment:
@@ -25,24 +31,44 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
 
-  # 3. Redis: 리프레시 토큰 및 캐싱용
+  # 3. Redis
   redis:
     image: redis:7.2-alpine
     container_name: redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # 4. Simulator Service: 메인 애플리케이션
+  # 4. Simulator Service
   simulator-service:
     build: .
     container_name: simulator-service
     ports:
       - "8086:8086"
     environment:
+      # docker 프로파일 활성화 — application.yml의 docker 블록 사용
+      - SPRING_PROFILES_ACTIVE=docker
+      # docker 프로파일의 kafka bootstrap-servers는 kafka:9092이므로 INTERNAL 포트(29092)로 오버라이드
+      # application.yml docker 프로파일을 kafka:29092로 맞추거나, 아래처럼 환경변수로 덮어씌우기
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - SPRING_DATA_REDIS_HOST=redis
       - SPRING_DATA_REDIS_PORT=6379
+      # Eureka 서버가 같은 compose 네트워크에 있을 경우 서비스명으로 지정
+      # 없으면 아래 줄 주석 처리
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
     depends_on:
-      - kafka
-      - redis
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: on-failure

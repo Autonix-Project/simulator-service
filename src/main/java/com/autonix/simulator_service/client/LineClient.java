@@ -13,11 +13,18 @@ import com.autonix.simulator_service.dto.VehicleResponseDto;
 @FeignClient(name = "line-service")
 public interface LineClient {
 
-    // 반환 타입을 VehicleResponseDto 리스트로 수정하여 Type Mismatch 해결
+    // 가동 중인 전체 차량 조회 (시뮬레이터 시작 시 최초 1회)
     @GetMapping("/v1/lines/vehicles/active")
     List<VehicleResponseDto> getActiveVehicles();
 
-    // 두 번째 인자를 String(nextStep)으로 받거나, DTO를 새로 생성해서 보내도록 수정
-    @PatchMapping("/v1/lines/vehicles/{v_id}")
-    void updateVehicleStep(@PathVariable("v_id") Long vehicleId, @RequestBody String nextStep);
+    // Tick마다 차량 공정 위치 업데이트
+    // PATCH /v1/lines/{lineId}/vehicles — 명세서 기준 경로
+    // vin을 PathVariable로, nextStep을 Body로 전달
+    @PatchMapping("/v1/lines/vehicles/{vin}")
+    void updateVehicleStep(@PathVariable("vin") String vin, @RequestBody String nextStep);
+
+    // 장애 강제 발생 시 라인 상태를 FAULT로 변경
+    // PATCH /v1/lines/{lineId}/status — 명세서 기준
+    @PatchMapping("/v1/lines/{lineId}/status")
+    void updateLineStatus(@PathVariable("lineId") String lineId, @RequestBody String status);
 }

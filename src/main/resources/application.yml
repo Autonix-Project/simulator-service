@@ -14,11 +14,6 @@ spring:
             connectTimeout: 5000
             readTimeout: 5000
 
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-
 app:
   topic:
     order-start: production.started
@@ -35,7 +30,7 @@ resilience4j:
         registerHealthIndicator: true
         slidingWindowSize: 10
         failureRateThreshold: 50
-        waitDurationInOpenState: 10000
+        waitDurationInOpenState: 10s   # ✅ 단위 명시
         permittedNumberOfCallsInHalfOpenState: 3
         slidingWindowType: COUNT_BASED
 
@@ -55,6 +50,11 @@ spring:
         spring.json.trusted.packages: "*"
         spring.json.value.default.type: com.autonix.simulator_service.dto.OrderStartedEvent
 
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/   # ✅ local용
+
 ---
 spring:
   config:
@@ -65,3 +65,13 @@ spring:
     consumer:
       group-id: simulator-group
       auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer   # ✅ 추가
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer   # ✅ 추가
+      properties:
+        spring.json.trusted.packages: "*"   # ✅ 추가
+        spring.json.value.default.type: com.autonix.simulator_service.dto.OrderStartedEvent   # ✅ 추가
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/   # ✅ docker용 호스트명
