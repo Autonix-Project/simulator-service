@@ -1,11 +1,13 @@
 package com.autonix.simulator_service.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.autonix.simulator_service.dto.SimulationResponseDto;
 import com.autonix.simulator_service.message.SimulationProducer;
 import com.autonix.simulator_service.service.SimulationService;
 
@@ -34,5 +36,10 @@ public class SimulatorController {
         producer.sendFaultEvent("LINE_FAULT", lineId);
         
         return ResponseEntity.ok("라인 " + lineId + " 장애 발생 시뮬레이션 시작");
+    }
+
+    @GetMapping("/status")
+    public ResponseEntity<SimulationResponseDto> getStatus() {
+        return ResponseEntity.ok(simulationService.getCurrentStatus());
     }
 }
