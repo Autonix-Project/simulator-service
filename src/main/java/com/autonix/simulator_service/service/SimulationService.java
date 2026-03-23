@@ -3,6 +3,7 @@ package com.autonix.simulator_service.service;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.springframework.scheduling.annotation.Scheduled;
@@ -240,7 +241,7 @@ public class SimulationService {
      */
     public void triggerLineFault(String lineId) {
         stopSimulation();
-        lineClient.updateLineStatus(lineId, "FAULT");
+        lineClient.updateLineStatus(Integer.parseInt(lineId), Map.of("status", "FAULT"));
         producer.sendFaultEvent("LINE_FAULT", lineId);
         log.info("[장애] 라인 {} FAULT 처리", lineId);
         addLog("[장애] 라인 " + lineId + " FAULT 강제 발생");

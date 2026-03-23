@@ -13,6 +13,12 @@ spring:
           default:
             connectTimeout: 5000
             readTimeout: 5000
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        "[spring.json.add.type.headers]": false
 
 app:
   topic:
@@ -61,17 +67,26 @@ spring:
     activate:
       on-profile: docker
   kafka:
-    bootstrap-servers: kafka:9092
+    bootstrap-servers: kafka:29092
     consumer:
       group-id: simulator-group
       auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer   # ✅ 추가
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer   # ✅ 추가
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.trusted.packages: "*"   # ✅ 추가
-        spring.json.value.default.type: com.autonix.simulator_service.dto.OrderStartedEvent   # ✅ 추가
+        spring.json.trusted.packages: "*"
+        spring.json.value.default.type: com.autonix.simulator_service.dto.OrderStartedEvent
+  cloud:
+    openfeign:
+      client:
+        config:
+          line-service:
+            url: http://line-service:8083
+          inventory-service:
+            url: http://inventory-service:8084
+          shipping-service:
+            url: http://shipping-service:8085
 
 eureka:
   client:
-    service-url:
-      defaultZone: http://eureka-server:8761/eureka/   # ✅ docker용 호스트명
+    enabled: false   # Eureka 서버 없는 환경에서 직접 URL로 Feign 호출

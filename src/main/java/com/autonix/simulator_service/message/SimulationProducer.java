@@ -33,6 +33,6 @@ public class SimulationProducer {
      * 장애 발생 → 알림 이벤트
      */
     public void sendFaultEvent(String type, String targetId) {
-        kafkaTemplate.send("fault.occurred", Map.of("type", type, "targetId", targetId));
+        kafkaTemplate.send("line.fault", Map.of("type", type, "targetId", targetId));
     }
 }
