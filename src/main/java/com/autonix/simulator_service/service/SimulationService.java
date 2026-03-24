@@ -2,7 +2,9 @@ package com.autonix.simulator_service.service;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.springframework.scheduling.annotation.Scheduled;
@@ -10,14 +12,14 @@ import org.springframework.stereotype.Service;
 
 import com.autonix.simulator_service.client.InventoryClient;
 import com.autonix.simulator_service.client.LineClient;
-import com.autonix.simulator_service.client.ShippingClient;
 import com.autonix.simulator_service.domain.ProcessStep;
 import com.autonix.simulator_service.domain.SimulationStatus;
 import com.autonix.simulator_service.domain.VirtualVehicle;
 import com.autonix.simulator_service.dto.OrderStartedEvent;
-import com.autonix.simulator_service.dto.ShippingCreateDto;
 import com.autonix.simulator_service.dto.SimulationConfigDto;
 import com.autonix.simulator_service.dto.SimulationResponseDto;
+import com.autonix.simulator_service.dto.VehicleResponseDto;
+import com.autonix.simulator_service.dto.VehicleUpdateDto;
 import com.autonix.simulator_service.message.SimulationProducer;
 
 import lombok.RequiredArgsConstructor;
@@ -30,7 +32,6 @@ public class SimulationService {
 
     private final LineClient lineClient;
     private final InventoryClient inventoryClient;
-    private final ShippingClient shippingClient;
     private final SimulationStatus status;
     private final SimulationProducer producer;
 
@@ -46,20 +47,55 @@ public class SimulationService {
 
     /**
      * Kafka로 수신한 주문 시작 이벤트 — 차량 투입
+     * line-service에서 활성 차량 목록을 조회한 뒤 orderId 기준으로 vehicleId/lineId 매핑
      */
     public void startOrderProduction(OrderStartedEvent event) {
+        List<VehicleResponseDto> orderVehicles = fetchLineVehiclesByOrderId(event.getOrderId());
+
         for (int i = 1; i <= event.getQuantity(); i++) {
             String vin = event.getOrderId() + "-" + i;
-            VirtualVehicle vehicle = new VirtualVehicle(
-                event.getOrderId(),
-                vin,
-                event.getModelName(),
-                ProcessStep.BODY_A,
-                ProcessStep.BODY_A.getDuration()
-            );
-            activeVehicles.add(vehicle);
-            addLog("[투입] " + vin + " (모델: " + event.getModelName() + ")");
+
+            VirtualVehicle.VirtualVehicleBuilder builder = VirtualVehicle.builder()
+                .orderId(event.getOrderId())
+                .vin(vin)
+                .modelName(event.getModelName())
+                .currentStep(ProcessStep.BODY_A)
+                .remainingTime(ProcessStep.BODY_A.getDuration())
+                .vehicleId(-1)
+                .lineId(-1);
+
+            // 인덱스 순서로 line-service 차량과 1:1 매핑
+            if (i - 1 < orderVehicles.size()) {
+                VehicleResponseDto matched = orderVehicles.get(i - 1);
+                builder.vehicleId(matched.getVehicleId())
+                       .lineId(matched.getCurrentLineId());
+                addLog("[투입] " + vin + " → vehicleId=" + matched.getVehicleId()
+                    + ", lineId=" + matched.getCurrentLineId()
+                    + " (모델: " + event.getModelName() + ")");
+            } else {
+                addLog("[투입] " + vin + " — vehicleId 매핑 실패, line-service 업데이트 생략 예정 (모델: " + event.getModelName() + ")");
+            }
+
+            activeVehicles.add(builder.build());
         }
+    }
+
+    /**
+     * line-service에서 활성 차량 전체 조회 후 특정 orderId에 해당하는 차량만 필터링
+     * Feign 호출 실패 시 빈 리스트 반환 (시뮬레이션 자체는 계속 동작)
+     */
+    private List<VehicleResponseDto> fetchLineVehiclesByOrderId(String orderId) {
+        try {
+            int orderIdInt = Integer.parseInt(orderId);
+            return lineClient.getActiveVehicles().stream()
+                .filter(v -> v.getOrderId() == orderIdInt)
+                .toList();
+        } catch (NumberFormatException e) {
+            log.warn("[투입] orderId가 정수형이 아닙니다 — vehicleId 매핑 생략: {}", orderId);
+        } catch (Exception e) {
+            log.warn("[투입] line-service 차량 조회 실패 — vehicleId 매핑 생략: {}", e.getMessage());
+        }
+        return List.of();
     }
 
     // -------------------------------------------------------------------------
@@ -93,25 +129,32 @@ public class SimulationService {
         if (nextStep == null) {
             // QC 완료 → 배송 서비스에 Feign으로 배송 등록 (통신 명세: 동기)
             log.info("[엔진] 차량 생산 완료: {}", vehicle.getVin());
-            shippingClient.createShipping(
-                ShippingCreateDto.builder()
-                    .vin(vehicle.getVin())
-                    .orderId(vehicle.getOrderId())
-                    .build()
-            );
-            addLog("[완료] " + vehicle.getVin() + " → 배송 등록 요청");
+            producer.sendShippingReadyEvent(vehicle.getVin(), vehicle.getOrderId());
+            addLog("[완료] " + vehicle.getVin() + " → shipping.ready 이벤트 발행");
             activeVehicles.remove(vehicle);
         } else {
             vehicle.setCurrentStep(nextStep);
             vehicle.setRemainingTime(nextStep.getDuration());
 
             // Line-Service 동기 업데이트
-            lineClient.updateVehicleStep(vehicle.getVin(), nextStep.name());
+            // vehicleId가 확인된 차량만 line-service에 전달 (Kafka 이벤트로 투입된 초기 차량은 -1)
+            if (vehicle.getVehicleId() > 0) {
+                lineClient.updateVehicleStep(
+                    vehicle.getLineId(),
+                    VehicleUpdateDto.builder()
+                        .vehicleId(vehicle.getVehicleId())
+                        .currentProcess(nextStep.toLineType())
+                        .build()
+                );
+            } else {
+                log.warn("[엔진] vehicleId 미확인 차량 — line-service 업데이트 생략: {}", vehicle.getVin());
+            }
 
-            // ASSEMBLY_A 진입 시 재고 차감 (Kafka 비동기)
-            if (nextStep == ProcessStep.ASSEMBLY_A) {
-                producer.sendInventoryDeductEvent(vehicle.getOrderId());
-                addLog("[재고차감] orderId=" + vehicle.getOrderId());
+            // 조립 단계 진입 시 재고 차감 (Kafka 비동기)
+            if (nextStep == ProcessStep.ASSEMBLY_A || nextStep == ProcessStep.ASSEMBLY_B) {
+                List<Map<String, Integer>> parts = getPartsForStep(nextStep);
+                producer.sendInventoryDeductEvent(vehicle.getVehicleId(), nextStep.getName(), parts);
+                addLog("[재고차감] vehicleId=" + vehicle.getVehicleId() + ", station=" + nextStep.getName());
             }
 
             addLog("[이동] " + vehicle.getVin() + " → " + nextStep.name());
@@ -160,7 +203,7 @@ public class SimulationService {
 
     /**
      * 특정 차량을 즉시 다음 공정으로 강제 이동 (테스트/시연용)
-     * POST /v1/simulator/move/{vehicleId}
+     * POST /simulator/move/{vehicleId}
      * vehicleId = vin (String)
      */
     public void forceMoveVehicle(String vin) {
@@ -175,7 +218,7 @@ public class SimulationService {
 
     /**
      * 특정 부품 재고를 강제로 0으로 만들어 재고 부족 알림 트리거 (시연용)
-     * POST /v1/simulator/error/stock/{partId}
+     * POST /simulator/error/stock/{partId}
      */
     public void triggerStockError(String partId) {
         log.info("[시연] 부품 {} 재고 강제 0 처리", partId);
@@ -185,14 +228,14 @@ public class SimulationService {
 
     /**
      * 라인 장애 강제 발생
-     * POST /v1/simulator/error/line/{lineId}
+     * POST /simulator/error/line/{lineId}
      * 1. 시뮬레이션 중지
      * 2. Line-Service에 Feign으로 FAULT 상태 변경 (명세: 동기)
      * 3. Kafka fault 이벤트 발행 (명세: 비동기)
      */
     public void triggerLineFault(String lineId) {
         stopSimulation();
-        lineClient.updateLineStatus(lineId, "FAULT");
+        lineClient.updateLineStatus(Integer.parseInt(lineId), Map.of("status", "FAULT"));
         producer.sendFaultEvent("LINE_FAULT", lineId);
         log.info("[장애] 라인 {} FAULT 처리", lineId);
         addLog("[장애] 라인 " + lineId + " FAULT 강제 발생");
@@ -200,7 +243,7 @@ public class SimulationService {
 
     /**
      * 시뮬레이터 이벤트 로그 조회 (최신순)
-     * GET /v1/simulator/logs
+     * GET /simulator/logs
      */
     public List<String> getLogs() {
         List<String> result = new ArrayList<>(eventLogs);
@@ -219,6 +262,21 @@ public class SimulationService {
                 .tickRate(status.getTickRate())
                 .statusMessage(message)
                 .build();
+    }
+
+    /**
+     * 조립 단계별 사용 부품 목록 반환
+     * 테스트 DB 기준 partId: 1(엔진오일), 2(에어필터), 3(브레이크패드)
+     */
+    private List<Map<String, Integer>> getPartsForStep(ProcessStep step) {
+        List<Map<String, Integer>> parts = new ArrayList<>();
+        for (int partId : new int[]{1, 2, 3}) {
+            Map<String, Integer> item = new HashMap<>();
+            item.put("partId", partId);
+            item.put("quantity", 1);
+            parts.add(item);
+        }
+        return parts;
     }
 
     private void addLog(String message) {
