@@ -8,9 +8,11 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class SimulationProducer {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
@@ -20,7 +22,14 @@ public class SimulationProducer {
      * vin은 "orderId-1" 형식의 String
      */
     public void sendShippingReadyEvent(String vin, String orderId) {
-        kafkaTemplate.send("shipping.ready", Map.of("vin", vin, "orderId", orderId));
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("vin", vin);
+            payload.put("orderId", Integer.parseInt(orderId));
+            kafkaTemplate.send("shipping.ready", payload);
+        } catch (NumberFormatException e) {
+            log.warn("[shipping.ready] orderId가 정수형이 아니어서 발행 생략: {}", orderId);
+        }
     }
 
     /**
