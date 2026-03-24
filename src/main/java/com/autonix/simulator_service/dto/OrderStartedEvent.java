@@ -10,7 +10,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class OrderStartedEvent {
-    private String orderId;
-    private String modelName;
-    private Integer quantity; // 생산해야 할 차량 대수
+    private Long orderId;
+    private String orderNumber;
+    private String carModel;
+    private String carColor;
+    private Integer totalQuantity;
 }
