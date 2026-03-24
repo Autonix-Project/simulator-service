@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Autonix-Project -type f \\\\\\(-name application*.properties -o -name application*.yml \\\\\\))"
+    ]
+  }
+}

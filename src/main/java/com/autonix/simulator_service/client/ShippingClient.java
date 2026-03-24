@@ -10,7 +10,6 @@ import com.autonix.simulator_service.dto.ShippingCreateDto;
 public interface ShippingClient {
 
     // QC 완료(생산 완료) 시 배송 등록 요청
-    // POST /v1/shippings/create — 명세서 기준
-    @PostMapping("/v1/shippings/create")
+    @PostMapping("/shippings/create")
     void createShipping(@RequestBody ShippingCreateDto dto);
 }
