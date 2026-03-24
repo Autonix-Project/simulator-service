@@ -11,12 +11,10 @@ import org.springframework.stereotype.Service;
 
 import com.autonix.simulator_service.client.InventoryClient;
 import com.autonix.simulator_service.client.LineClient;
-import com.autonix.simulator_service.client.ShippingClient;
 import com.autonix.simulator_service.domain.ProcessStep;
 import com.autonix.simulator_service.domain.SimulationStatus;
 import com.autonix.simulator_service.domain.VirtualVehicle;
 import com.autonix.simulator_service.dto.OrderStartedEvent;
-import com.autonix.simulator_service.dto.ShippingCreateDto;
 import com.autonix.simulator_service.dto.SimulationConfigDto;
 import com.autonix.simulator_service.dto.SimulationResponseDto;
 import com.autonix.simulator_service.dto.VehicleResponseDto;
@@ -33,7 +31,6 @@ public class SimulationService {
 
     private final LineClient lineClient;
     private final InventoryClient inventoryClient;
-    private final ShippingClient shippingClient;
     private final SimulationStatus status;
     private final SimulationProducer producer;
 
@@ -131,13 +128,8 @@ public class SimulationService {
         if (nextStep == null) {
             // QC 완료 → 배송 서비스에 Feign으로 배송 등록 (통신 명세: 동기)
             log.info("[엔진] 차량 생산 완료: {}", vehicle.getVin());
-            shippingClient.createShipping(
-                ShippingCreateDto.builder()
-                    .vin(vehicle.getVin())
-                    .orderId(vehicle.getOrderId())
-                    .build()
-            );
-            addLog("[완료] " + vehicle.getVin() + " → 배송 등록 요청");
+            producer.sendShippingReadyEvent(vehicle.getVin(), vehicle.getOrderId());
+            addLog("[완료] " + vehicle.getVin() + " → shipping.ready 이벤트 발행");
             activeVehicles.remove(vehicle);
         } else {
             vehicle.setCurrentStep(nextStep);

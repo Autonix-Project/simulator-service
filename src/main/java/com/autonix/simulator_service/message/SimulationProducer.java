@@ -17,8 +17,8 @@ public class SimulationProducer {
      * 생산 완료 → 출고 이벤트
      * vin은 "orderId-1" 형식의 String
      */
-    public void sendShippingReadyEvent(String vin) {
-        kafkaTemplate.send("shipping.ready", Map.of("vin", vin));
+    public void sendShippingReadyEvent(String vin, String orderId) {
+        kafkaTemplate.send("shipping.ready", Map.of("vin", vin, "orderId", orderId));
     }
 
     /**
