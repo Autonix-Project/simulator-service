@@ -1,5 +1,7 @@
 package com.autonix.simulator_service.message;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.kafka.core.KafkaTemplate;
@@ -22,11 +24,15 @@ public class SimulationProducer {
     }
 
     /**
-     * 조립 단계(ASSEMBLY_A) 진입 → 재고 차감 이벤트
-     * orderId는 String
+     * 조립 단계 진입 → 재고 차감 이벤트
+     * Key: vehicleId / Payload: { vehicleId, station, parts[] }
      */
-    public void sendInventoryDeductEvent(String orderId) {
-        kafkaTemplate.send("inventory.deduct", Map.of("orderId", orderId, "action", "DECREASE"));
+    public void sendInventoryDeductEvent(Integer vehicleId, String station, List<Map<String, Integer>> parts) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("vehicleId", vehicleId);
+        payload.put("station", station);
+        payload.put("parts", parts);
+        kafkaTemplate.send("inventory.deduct", String.valueOf(vehicleId), payload);
     }
 
     /**

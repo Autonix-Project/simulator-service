@@ -2,6 +2,7 @@ package com.autonix.simulator_service.service;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -149,10 +150,11 @@ public class SimulationService {
                 log.warn("[엔진] vehicleId 미확인 차량 — line-service 업데이트 생략: {}", vehicle.getVin());
             }
 
-            // ASSEMBLY_A 진입 시 재고 차감 (Kafka 비동기)
-            if (nextStep == ProcessStep.ASSEMBLY_A) {
-                producer.sendInventoryDeductEvent(vehicle.getOrderId());
-                addLog("[재고차감] orderId=" + vehicle.getOrderId());
+            // 조립 단계 진입 시 재고 차감 (Kafka 비동기)
+            if (nextStep == ProcessStep.ASSEMBLY_A || nextStep == ProcessStep.ASSEMBLY_B) {
+                List<Map<String, Integer>> parts = getPartsForStep(nextStep);
+                producer.sendInventoryDeductEvent(vehicle.getVehicleId(), nextStep.getName(), parts);
+                addLog("[재고차감] vehicleId=" + vehicle.getVehicleId() + ", station=" + nextStep.getName());
             }
 
             addLog("[이동] " + vehicle.getVin() + " → " + nextStep.name());
@@ -260,6 +262,21 @@ public class SimulationService {
                 .tickRate(status.getTickRate())
                 .statusMessage(message)
                 .build();
+    }
+
+    /**
+     * 조립 단계별 사용 부품 목록 반환
+     * 테스트 DB 기준 partId: 1(엔진오일), 2(에어필터), 3(브레이크패드)
+     */
+    private List<Map<String, Integer>> getPartsForStep(ProcessStep step) {
+        List<Map<String, Integer>> parts = new ArrayList<>();
+        for (int partId : new int[]{1, 2, 3}) {
+            Map<String, Integer> item = new HashMap<>();
+            item.put("partId", partId);
+            item.put("quantity", 1);
+            parts.add(item);
+        }
+        return parts;
     }
 
     private void addLog(String message) {
