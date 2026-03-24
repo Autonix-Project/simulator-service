@@ -18,7 +18,7 @@ public class OrderConsumer {
 
     @KafkaListener(topics = "${app.topic.order-start}", groupId = "simulator-group")
     public void consumeOrder(OrderStartedEvent event) {
-        log.info("주문 수신: orderId={}, 모델={}", event.getOrderId(), event.getModelName());
+        log.info("주문 수신: orderId={}, 모델={}", event.getOrderId(), event.getCarModel());
         simulationService.startOrderProduction(event);
     }
 }

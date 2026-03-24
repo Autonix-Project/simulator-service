@@ -50,15 +50,16 @@ public class SimulationService {
      * line-service에서 활성 차량 목록을 조회한 뒤 orderId 기준으로 vehicleId/lineId 매핑
      */
     public void startOrderProduction(OrderStartedEvent event) {
-        List<VehicleResponseDto> orderVehicles = fetchLineVehiclesByOrderId(event.getOrderId());
+        String orderId = String.valueOf(event.getOrderId());
+        List<VehicleResponseDto> orderVehicles = fetchLineVehiclesByOrderId(orderId);
 
-        for (int i = 1; i <= event.getQuantity(); i++) {
-            String vin = event.getOrderId() + "-" + i;
+        for (int i = 1; i <= event.getTotalQuantity(); i++) {
+            String vin = orderId + "-" + i;
 
             VirtualVehicle.VirtualVehicleBuilder builder = VirtualVehicle.builder()
-                .orderId(event.getOrderId())
+                .orderId(orderId)
                 .vin(vin)
-                .modelName(event.getModelName())
+                .modelName(event.getCarModel())
                 .currentStep(ProcessStep.BODY_A)
                 .remainingTime(ProcessStep.BODY_A.getDuration())
                 .vehicleId(-1)
@@ -71,9 +72,9 @@ public class SimulationService {
                        .lineId(matched.getCurrentLineId());
                 addLog("[투입] " + vin + " → vehicleId=" + matched.getVehicleId()
                     + ", lineId=" + matched.getCurrentLineId()
-                    + " (모델: " + event.getModelName() + ")");
+                    + " (모델: " + event.getCarModel() + ")");
             } else {
-                addLog("[투입] " + vin + " — vehicleId 매핑 실패, line-service 업데이트 생략 예정 (모델: " + event.getModelName() + ")");
+                addLog("[투입] " + vin + " — vehicleId 매핑 실패, line-service 업데이트 생략 예정 (모델: " + event.getCarModel() + ")");
             }
 
             activeVehicles.add(builder.build());

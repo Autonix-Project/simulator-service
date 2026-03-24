@@ -22,7 +22,7 @@ spring:
 
 app:
   topic:
-    order-start: production.started
+    order-start: order.start
     inventory-deduct: inventory.deduct
     line-fault: line.fault
 
